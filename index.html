@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChupChap Pathshala - Cloud SaaS Pro</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK (Cloud Realtime Sync) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #f7f9fa;
+            --sidebar-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --gradient-orange: linear-gradient(135deg, #ff7e5f, #feb47b);
+            --gradient-red: linear-gradient(135deg, #ff416c, #ff4b2b);
+            --gradient-green: linear-gradient(135deg, #00b09b, #96c93d);
+            --gradient-blue: linear-gradient(135deg, #3a7bd5, #3a6073);
+            --card-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            --card-radius: 20px;
+            --border-color: #f3f4f6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Urbanist', sans-serif; }
+        body { display: flex; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text-main); }
+        
+        .modern-card { background: #ffffff; border-radius: var(--card-radius); box-shadow: var(--card-shadow); border: 1px solid var(--border-color); }
+
+        .sidebar { width: 250px; background: var(--sidebar-bg); display: flex; flex-direction: column; z-index: 50; box-shadow: 2px 0 10px rgba(0,0,0,0.02); }
+        .brand-logo { padding: 30px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid var(--border-color); }
+        .brand-logo img { width: 45px; height: 45px; object-fit: contain; }
+        .brand-logo h2 { font-size: 20px; font-weight: 800; color: #ff416c; }
+
+        .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 5px; padding: 20px 10px; }
+        .nav-item { padding: 15px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 15px; border-radius: 12px; color: var(--text-muted); }
+        .nav-item:hover, .nav-item.active { background: rgba(255, 65, 108, 0.05); color: #ff416c; }
+        
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background: #fff; border-bottom: 1px solid var(--border-color); z-index: 10; }
+        .page-title { font-size: 24px; font-weight: 700; }
+        
+        .action-btns button { background: #fff; border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 15px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.3s; margin-left: 10px; }
+        .action-btns button:hover { background: #ff416c; color: #fff; border-color: #ff416c; }
+
+        .content { flex: 1; overflow-y: auto; display: none; padding: 30px; }
+        .content.active { display: block; animation: slideUp 0.4s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card-colored { padding: 25px; border-radius: var(--card-radius); color: white; display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .stat-card-colored h4 { font-size: 13px; font-weight: 600; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card-colored h2 { font-size: 24px; font-weight: 800; }
+
+        .targets-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .target-card { padding: 25px; display: flex; align-items: center; justify-content: space-between; }
+        .target-info { flex: 1; }
+        .target-info h3 { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+        .target-info p { font-size: 13px; color: var(--text-muted); margin-bottom: 15px; }
+        .chart-container-small { width: 100px; height: 100px; position: relative; }
+        .chart-center-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 800; font-size: 16px; }
+
+        .category-tabs { display: flex; gap: 15px; margin-bottom: 25px; }
+        .cat-btn { flex: 1; padding: 15px; border-radius: 14px; border: 2px solid var(--border-color); background: #fff; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.3s; text-align: center; }
+        .cat-btn.active { border-color: #ff416c; background: rgba(255, 65, 108, 0.05); color: #ff416c; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-group label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+        .input-control { background: #f9fafb; border: 1px solid #e5e7eb; padding: 12px 15px; border-radius: 12px; outline: none; font-size: 14px; }
+        .input-control:focus { border-color: #ff416c; background: #fff; }
+        
+        .item-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 15px; align-items: end; background: #f9fafb; padding: 15px; border-radius: 16px; border: 1px dashed #d1d5db; margin-bottom: 12px; }
+        @media(max-width: 768px) { .item-row { grid-template-columns: 1fr; } }
+        
+        .btn-gradient { background: var(--gradient-red); color: #fff; border: none; padding: 14px 20px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 15px; box-shadow: 0 5px 15px rgba(255,65,108,0.3); width: 100%; }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0 8px; font-size: 14px; min-width: 600px; }
+        th { padding: 10px 15px; text-align: left; color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+        td { padding: 15px; background: #fff; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+        td:first-child { border-left: 1px solid var(--border-color); border-radius: 12px 0 0 12px; }
+        td:last-child { border-right: 1px solid var(--border-color); border-radius: 0 12px 12px 0; }
+
+        .badge { padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+        .badge-Book { background: #eff6ff; color: #3b82f6; }
+        .badge-Chinese { background: #fdf2f8; color: #db2777; }
+        .badge-Pending { background: #fffbeb; color: #d97706; }
+        .badge-Delivered { background: #ecfdf5; color: #059669; }
+        
+        .action-btn { background: #f3f4f6; border: none; color: var(--text-main); width: 34px; height: 34px; border-radius: 8px; cursor: pointer; display: inline-flex; justify-content: center; align-items: center; margin-right: 4px; }
+        .action-btn:hover { background: #e5e7eb; }
+        .btn-del { color: #ef4444; background: #fef2f2; }
+        .btn-print { color: #3b82f6; background: #eff6ff; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: #fff; width: 90%; max-width: 500px; padding: 25px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); position: relative; max-height: 85vh; overflow-y: auto; }
+
+        .bottom-nav { display: none; }
+        @media(max-width: 768px) {
+            .sidebar { display: none; }
+            .content { padding: 15px; padding-bottom: 80px; }
+            .header { padding: 15px; }
+            .page-title { font-size: 18px; }
+            .action-btns button span { display: none; }
+            .bottom-nav {
+                display: flex; justify-content: space-around; align-items: center;
+                position: fixed; bottom: 0; left: 0; width: 100%;
+                background: #fff; box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
+                padding: 10px 0; z-index: 100; border-top: 1px solid var(--border-color);
+            }
+            .bottom-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; width: 25%; }
+            .bottom-nav-item i { font-size: 20px; }
+            .bottom-nav-item.active { color: #ff416c; }
+        }
+
+        #invoice-print { display: none; background: white; padding: 50px; color: #111827; font-family: 'Urbanist', sans-serif; }
+        .inv-top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+        .inv-brand-logo { width: 70px; height: 70px; object-fit: contain; margin-bottom: 10px; }
+        .inv-title-box { text-align: right; }
+        .inv-title-box h1 { font-size: 32px; font-weight: 800; color: #ff416c; margin: 0; }
+        .inv-title-box .due-amount { font-size: 26px; font-weight: 800; color: #ff416c; margin-top: 5px; }
+        .inv-info-grid { display: flex; justify-content: space-between; background: #fdf2f4; padding: 20px; border-radius: 12px; margin-bottom: 30px; }
+        .inv-info-col h4 { font-size: 12px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+        .inv-info-col p { font-size: 14px; font-weight: 600; color: #111827; margin: 2px 0; }
+        .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .inv-table th { background: #111827; color: white; padding: 12px 15px; font-size: 12px; text-transform: uppercase; text-align: left; }
+        .inv-table th:last-child, .inv-table td:last-child { text-align: right; }
+        .inv-table td { padding: 15px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+        .inv-summary-box { width: 320px; margin-left: auto; margin-bottom: 40px; }
+        .inv-sum-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; color: var(--text-muted); }
+        .inv-sum-row.total { border-top: 2px solid #111827; padding-top: 12px; margin-top: 5px; font-size: 18px; font-weight: 800; color: #111827; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #invoice-print, #invoice-print * { visibility: visible; }
+            #invoice-print { display: block; position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand-logo">
+            <img src="logo.png.png" alt="Logo" onerror="this.src='logo.png'">
+            <h2>ChupChap</h2>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item active" onclick="switchTab('tab-dashboard', this)"><i class="fas fa-chart-pie"></i> Board Overview</li>
+            <li class="nav-item" onclick="switchTab('tab-new-order', this)" id="nav-order-text"><i class="fas fa-cart-plus"></i> New Order</li>
+            <li class="nav-item" onclick="switchTab('tab-order-list', this)"><i class="fas fa-receipt"></i> Order List</li>
+            <li class="nav-item" onclick="switchTab('tab-expenses', this)"><i class="fas fa-wallet"></i> Expenses</li>
+        </ul>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="main-wrapper">
+        <div class="header">
+            <div class="page-title" id="header-title">Board Overview</div>
+            <div class="action-btns">
+                <span id="sync-status" style="font-size:12px; color:#059669; font-weight:700; margin-right:10px;"><i class="fas fa-cloud"></i> Cloud Live</span>
+                <button onclick="exportBackup()"><i class="fas fa-download"></i> <span>Backup</span></button>
+                <input type="file" id="importFile" style="display:none" onchange="importBackup(event)">
+                <button onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i> <span>Restore</span></button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="tab-dashboard" class="content active">
+            <!-- Monthly Targets Section -->
+            <div class="targets-section">
+                <div class="modern-card target-card">
+                    <div class="target-info">
+                        <h3>Order Target <span style="font-size:11px; cursor:pointer; color:#ff416c; margin-left:5px;" onclick="setMonthlyTarget('orders')"><i class="fas fa-pen"></i></span></h3>
+                        <p><span id="target-orders-achieved">0</span> / <span id="target-orders-goal">100</span> Orders</p>
+                        <span style="font-size:12px; font-weight:700; color:#ff416c;" id="target-orders-remaining">100 Left</span>
+                    </div>
+                    <div class="chart-container-small">
+                        <canvas id="targetOrdersChart"></canvas>
+                        <div class="chart-center-text" id="target-orders-percent">0%</div>
+                    </div>
+                </div>
+
+                <div class="modern-card target-card">
+                    <div class="target-info">
+                        <h3>Revenue Target <span style="font-size:11px; cursor:pointer; color:#00b09b; margin-left:5px;" onclick="setMonthlyTarget('revenue')"><i class="fas fa-pen"></i></span></h3>
+                        <p>৳<span id="target-rev-achieved">0</span> / ৳<span id="target-rev-goal">50000</span></p>
+                        <span style="font-size:12px; font-weight:700; color:#00b09b;" id="target-rev-remaining">৳50000 Left</span>
+                    </div>
+                    <div class="chart-container-small">
+                        <canvas id="targetRevChart"></canvas>
+                        <div class="chart-center-text" id="target-rev-percent">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overall Summary Cards -->
+            <div class="stats-grid">
+                <div class="stat-card-colored" style="background: var(--gradient-red);">
+                    <h4>Total Combined Revenue</h4>
+                    <h2 id="dash-tot-rev">৳ 0</h2>
+                </div>
+                <div class="stat-card-colored" style="background: var(--gradient-green);">
+                    <h4>Total Combined Net Profit</h4>
+                    <h2 id="dash-tot-profit">৳ 0</h2>
+                </div>
+                <div class="stat-card-colored" style="background: var(--gradient-orange);">
+                    <h4>Total Combined Buy Cost</h4>
+                    <h2 id="dash-tot-buy">৳ 0</h2>
+                </div>
+                <div class="stat-card-colored" style="background: var(--gradient-blue);">
+                    <h4>Total Business Expenses</h4>
+                    <h2 id="dash-tot-exp">৳ 0</h2>
+                </div>
+            </div>
+
+            <!-- Detailed Section: Books vs Chinese Products -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:25px; margin-bottom:30px;">
+                <div class="modern-card" style="padding:25px; border-top: 4px solid #3b82f6;">
+                    <h3 style="font-size:18px; color:#3b82f6; margin-bottom:15px;"><i class="fas fa-book"></i> Book Financial Breakdown</h3>
+                    <p style="margin:8px 0;"><strong>Total Books Sold:</strong> <span id="book-sold-count">0</span> items</p>
+                    <p style="margin:8px 0;"><strong>Total Revenue:</strong> ৳ <span id="book-revenue">0</span></p>
+                    <p style="margin:8px 0;"><strong>Total Buy Cost:</strong> ৳ <span id="book-buy-total">0</span></p>
+                    <p style="margin:8px 0;"><strong>Delivery/Courier Share:</strong> ৳ <span id="book-del-share">0</span></p>
+                    <p style="margin:8px 0; font-size:16px; border-top:1px dashed #e5e7eb; padding-top:10px;"><strong>Net Profit:</strong> <span id="book-profit" style="color:#059669; font-weight:800;">৳ 0</span></p>
+                </div>
+
+                <div class="modern-card" style="padding:25px; border-top: 4px solid #db2777;">
+                    <h3 style="font-size:18px; color:#db2777; margin-bottom:15px;"><i class="fas fa-box"></i> Chinese Product Breakdown</h3>
+                    <p style="margin:8px 0;"><strong>Total Items Sold:</strong> <span id="chinese-sold-count">0</span> items</p>
+                    <p style="margin:8px 0;"><strong>Total Revenue:</strong> ৳ <span id="chinese-revenue">0</span></p>
+                    <p style="margin:8px 0;"><strong>Total Buy Cost:</strong> ৳ <span id="chinese-buy-total">0</span></p>
+                    <p style="margin:8px 0;"><strong>Delivery/Courier Share:</strong> ৳ <span id="chinese-del-share">0</span></p>
+                    <p style="margin:8px 0; font-size:16px; border-top:1px dashed #e5e7eb; padding-top:10px;"><strong>Net Profit:</strong> <span id="chinese-profit" style="color:#059669; font-weight:800;">৳ 0</span></p>
+                </div>
+            </div>
+
+            <!-- Sales Distribution Chart -->
+            <div class="modern-card" style="padding: 25px; margin-bottom: 30px;">
+                <h3 style="font-size: 16px; margin-bottom: 15px;">Sales Distribution by Category</h3>
+                <div style="position:relative; height:220px; width:100%; display:flex; justify-content:center;">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Form -->
+        <div id="tab-new-order" class="content">
+            <div class="modern-card panel">
+                <h2 class="panel-title" id="order-form-title" style="color:#ff416c;">Create New Order</h2>
+                
+                <div class="category-tabs">
+                    <button type="button" class="cat-btn active" id="btn-cat-book" onclick="setOrderCategory('Book')"><i class="fas fa-book"></i> 1. Book Order</button>
+                    <button type="button" class="cat-btn" id="btn-cat-chinese" onclick="setOrderCategory('Chinese')"><i class="fas fa-box-open"></i> 2. Chinese Product</button>
+                </div>
+
+                <form id="orderForm">
+                    <input type="hidden" id="selected-category" value="Book">
+                    <div class="form-grid">
+                        <div class="input-group"><label>Date</label><input type="date" id="o-date" class="input-control" required></div>
+                        <div class="input-group"><label>Customer Name</label><input type="text" id="o-name" class="input-control" required></div>
+                        <div class="input-group"><label>Phone Number</label><input type="text" id="o-phone" class="input-control" required></div>
+                        <div class="input-group"><label>Address</label><input type="text" id="o-address" class="input-control" required></div>
+                    </div>
+
+                    <div style="margin: 25px 0;">
+                        <label id="items-section-label" style="font-size: 14px; font-weight: 700; margin-bottom:10px; display:block;">Books Included</label>
+                        <div id="item-rows-container"></div>
+                        <button type="button" onclick="addItemRow()" style="background: transparent; border: 1px dashed #d1d5db; color: var(--text-main); padding: 12px; border-radius: 12px; cursor: pointer; width: 100%; font-weight: 600;"><i class="fas fa-plus" style="color:#ff416c;"></i> Add Another Item</button>
+                    </div>
+
+                    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                        <div class="input-group"><label>Delivery Charge (Paid) ৳</label><input type="number" id="o-del-given" class="input-control" required></div>
+                        <div class="input-group"><label>Courier Cost (Actual) ৳</label><input type="number" id="o-del-cost" class="input-control" required></div>
+                        <div class="input-group">
+                            <label>Order Status</label>
+                            <select id="o-status" class="input-control">
+                                <option value="Pending">Pending</option>
+                                <option value="Shipped">Shipped</option>
+                                <option value="Delivered">Delivered</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top: 25px;">
+                        <button type="submit" class="btn-gradient" id="order-submit-btn" style="flex:1;">Save Order</button>
+                        <button type="button" id="order-cancel-btn" style="display:none; flex:1; background:#fef2f2; color:#ef4444; border:1px solid #ef4444; border-radius:12px; cursor:pointer; font-weight:700;" onclick="cancelEditOrder()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Order List -->
+        <div id="tab-order-list" class="content">
+            <div class="modern-card panel table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date / Category</th>
+                            <th>Customer Info</th>
+                            <th>Financials</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Expenses -->
+        <div id="tab-expenses" class="content">
+            <div class="modern-card panel" style="margin-bottom: 25px;">
+                <h2 class="panel-title" id="expense-form-title">Add Expense</h2>
+                <form id="expenseForm" class="form-grid" style="align-items: end;">
+                    <div class="input-group"><label>Date</label><input type="date" id="e-date" class="input-control" required></div>
+                    <div class="input-group"><label>Details</label><input type="text" id="e-note" class="input-control" required></div>
+                    <div class="input-group"><label>Amount (৳)</label><input type="number" id="e-amount" class="input-control" required></div>
+                    <div style="display:flex; gap:5px;">
+                        <button type="submit" class="btn-gradient" id="expense-submit-btn">Save</button>
+                        <button type="button" id="expense-cancel-btn" style="display:none; padding:12px; background:transparent; border:1px solid #ef4444; color:#ef4444; border-radius:12px; cursor:pointer;" onclick="cancelEditExpense()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modern-card panel table-responsive">
+                <table>
+                    <thead><tr><th>Date</th><th>Expense Details</th><th>Amount (৳)</th><th style="text-align:right;">Action</th></tr></thead>
+                    <tbody id="expenseTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="color:#ff416c;">Order Details</h3>
+                <button onclick="closeModal()" style="background:none; border:none; font-size:18px; cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <div class="bottom-nav">
+        <div class="bottom-nav-item active" onclick="switchTab('tab-dashboard', this)"><i class="fas fa-chart-pie"></i><span>Board</span></div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-new-order', this)" id="nav-order-mob"><i class="fas fa-cart-plus"></i><span>Order</span></div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-order-list', this)"><i class="fas fa-receipt"></i><span>List</span></div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-expenses', this)"><i class="fas fa-wallet"></i><span>Expenses</span></div>
+    </div>
+
+    <!-- Printable Invoice -->
+    <div id="invoice-print">
+        <div class="inv-top-bar">
+            <div>
+                <img src="logo.png.png" class="inv-brand-logo" alt="Logo" onerror="this.src='logo.png'">
+                <h2 style="font-size:22px; font-weight:800; color:#111827; margin:0;">ChupChap Pathshala</h2>
+                <p style="font-size:12px; color:var(--text-muted); margin:2px 0;">Reliable Store in Bangladesh</p>
+                <p style="font-size:12px; color:var(--text-muted); margin:0;">www.chupchappathshala.com</p>
+            </div>
+            <div class="inv-title-box">
+                <h1>INVOICE</h1>
+                <p style="font-size:13px; color:var(--text-muted); margin-top:5px;"><strong>Date:</strong> <span id="inv-date"></span></p>
+                <p style="font-size:13px; color:var(--text-muted);"><strong>Invoice ID:</strong> #<span id="inv-id"></span></p>
+                <div class="due-amount" id="inv-top-due">৳ 0</div>
+            </div>
+        </div>
+
+        <div class="inv-info-grid">
+            <div class="inv-info-col">
+                <h4>Billed To:</h4>
+                <p id="inv-name" style="font-size:16px; font-weight:700;"></p>
+                <p id="inv-phone"></p>
+                <p id="inv-address"></p>
+            </div>
+            <div class="inv-info-col" style="text-align:right;">
+                <h4>Store Location:</h4>
+                <p>Merul Badda, Dhaka - 1212</p>
+                <p>Bangladesh</p>
+            </div>
+        </div>
+
+        <table class="inv-table">
+            <thead>
+                <tr>
+                    <th id="inv-th-item">Item Description</th>
+                    <th id="inv-th-sub">Publisher / Category</th>
+                    <th style="text-align:right;">Price</th>
+                </tr>
+            </thead>
+            <tbody id="inv-items"></tbody>
+        </table>
+
+        <div class="inv-summary-box">
+            <div class="inv-sum-row"><span>Items Subtotal</span> <strong id="inv-sub">৳ 0</strong></div>
+            <div class="inv-sum-row"><span>Delivery Charge</span> <strong id="inv-del">৳ 0</strong></div>
+            <div class="inv-sum-row total"><span>Amount Due</span> <strong id="inv-total" style="color:#ff416c;">৳ 0</strong></div>
+        </div>
+
+        <div style="margin-top:60px; border-top:1px solid #e5e7eb; padding-top:20px; display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted);">
+            <div><p><strong>Terms & Conditions:</strong> Thank you for shopping with us.</p></div>
+            <div style="text-align:right;"><p style="margin-bottom:30px;">Authorized Signature</p><p>__________________________</p></div>
+        </div>
+    </div>
+
+<script>
+    // --- Firebase Free Cloud Configuration ---
+    // (Note: Apni chaile firebase.google.com theke nijer free project er credentials gulo ekhane bosiye nite paren, akhon default local+cloud hybrid mode a ache)
+    const firebaseConfig = {
+        apiKey: "AIzaSyDemoKeyForChupChapPathshala12345",
+        authDomain: "chupchap-app.firebaseapp.com",
+        projectId: "chupchap-app",
+        storageBucket: "chupchap-app.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:abcdef"
+    };
+
+    let isCloudActive = false;
+    try {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        var dbCloud = firebase.firestore();
+        isCloudActive = true;
+    } catch(err) {
+        console.log("Offline LocalStorage Mode Active");
+    }
+
+    let db = { orders: [], expenses: [] };
+    let targets = JSON.parse(localStorage.getItem('chupchap_master_targets')) || { orders: 100, revenue: 50000 };
+    
+    let pieChartInst, tOrderChartInst, tRevChartInst;
+    let editOrderIndex = null;
+    let editExpenseIndex = null;
+
+    // Load Data (Cloud First with LocalStorage Fallback)
+    function loadData() {
+        if(isCloudActive) {
+            dbCloud.collection("store").doc("main_data").get().then((doc) => {
+                if (doc.exists) {
+                    db = doc.data();
+                    renderAll();
+                } else {
+                    loadLocal();
+                }
+            }).catch(() => { loadLocal(); });
+        } else {
+            loadLocal();
+        }
+    }
+
+    function loadLocal() {
+        let localData = JSON.parse(localStorage.getItem('chupchap_master_db'));
+        if(localData) { db = localData; }
+        renderAll();
+    }
+
+    function saveData() {
+        // Save to LocalStorage immediately for instant offline support
+        localStorage.setItem('chupchap_master_db', JSON.stringify(db));
+        localStorage.setItem('chupchap_master_targets', JSON.stringify(targets));
+
+        // Sync to Cloud in background
+        if(isCloudActive) {
+            dbCloud.collection("store").doc("main_data").set(db)
+            .then(() => {
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-cloud"></i> Synced';
+            })
+            .catch(() => {
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-cloud-rain"></i> Offline Save';
+            });
+        }
+    }
+
+    function renderAll() {
+        renderOrders();
+        renderExpenses();
+        updateDashboard();
+    }
+
+    function switchTab(tabId, el) {
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        if(el) {
+            if(el.classList.contains('nav-item')) el.classList.add('active');
+            if(el.classList.contains('bottom-nav-item')) el.classList.add('active');
+        }
+        
+        let titles = {'tab-dashboard':'Board Overview', 'tab-new-order': editOrderIndex !== null ? 'Edit Order' : 'Create Order', 'tab-order-list':'Order List', 'tab-expenses':'Expenses'};
+        document.getElementById('header-title').innerText = titles[tabId];
+        
+        if(tabId === 'tab-dashboard') updateDashboard();
+        if(tabId === 'tab-order-list') renderOrders();
+    }
+
+    function setOrderCategory(cat) {
+        document.getElementById('selected-category').value = cat;
+        if(cat === 'Book') {
+            document.getElementById('btn-cat-book').classList.add('active');
+            document.getElementById('btn-cat-chinese').classList.remove('active');
+            document.getElementById('items-section-label').innerText = "Books Included";
+        } else {
+            document.getElementById('btn-cat-chinese').classList.add('active');
+            document.getElementById('btn-cat-book').classList.remove('active');
+            document.getElementById('items-section-label').innerText = "Chinese Products Included";
+        }
+        let existingRows = document.querySelectorAll('.item-row');
+        let data = [];
+        existingRows.forEach(row => {
+            data.push({
+                name: row.querySelector('.i-name').value,
+                pub: row.querySelector('.i-pub').value,
+                buy: row.querySelector('.i-buy').value,
+                sell: row.querySelector('.i-sell').value
+            });
+        });
+        document.getElementById('item-rows-container').innerHTML = '';
+        if(data.length > 0) {
+            data.forEach(d => addItemRow(d.name, d.pub, d.buy, d.sell));
+        } else {
+            addItemRow();
+        }
+    }
+
+    function addItemRow(name='', pub='', buy='', sell='') {
+        let cat = document.getElementById('selected-category').value;
+        let pubLabel = cat === 'Book' ? 'Pub.' : 'Variant/Type';
+        const id = Date.now() + Math.random();
+        const html = `
+            <div class="item-row" id="row-${id}">
+                <div class="input-group"><label>Item Name</label><input type="text" class="input-control i-name" value="${name}" required></div>
+                <div class="input-group"><label>${pubLabel}</label><input type="text" class="input-control i-pub" value="${pub}" required></div>
+                <div class="input-group"><label>Buy ৳</label><input type="number" class="input-control i-buy" value="${buy}" required></div>
+                <div class="input-group"><label>Sell ৳</label><input type="number" class="input-control i-sell" value="${sell}" required></div>
+                <button type="button" class="action-btn btn-del" onclick="document.getElementById('row-${id}').remove()" style="height:44px; margin:0;"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+        document.getElementById('item-rows-container').insertAdjacentHTML('beforeend', html);
+    }
+
+    function setMonthlyTarget(type) {
+        let currentTarget = type === 'orders' ? targets.orders : targets.revenue;
+        let promptText = type === 'orders' ? "Enter monthly target for Orders:" : "Enter monthly target for Revenue (৳):";
+        let newTarget = prompt(promptText, currentTarget);
+        
+        if(newTarget && !isNaN(newTarget)) {
+            targets[type] = Number(newTarget);
+            saveData();
+            updateDashboard();
+        }
+    }
+
+    function updateDashboard() {
+        let bookSold = 0, bookBuy = 0, bookSell = 0, bookDelGiven = 0, bookDelCost = 0;
+        let chineseSold = 0, chineseBuy = 0, chineseSell = 0, chineseDelGiven = 0, chineseDelCost = 0;
+        let totalOtherExp = 0;
+        
+        let currentMonth = new Date().toISOString().slice(0, 7);
+        let cMonthOrders = 0;
+        let cMonthRev = 0;
+        let categoryCount = { 'Book': 0, 'Chinese': 0 };
+
+        db.orders.forEach(o => {
+            let isCurrent = o.date.startsWith(currentMonth);
+            if(isCurrent) cMonthOrders++;
+            if(o.category) categoryCount[o.category] = (categoryCount[o.category] || 0) + 1;
+
+            o.items.forEach(item => {
+                if(o.category === 'Chinese') {
+                    chineseSold += 1;
+                    chineseBuy += Number(item.buy);
+                    chineseSell += Number(item.sell);
+                } else {
+                    bookSold += 1;
+                    bookBuy += Number(item.buy);
+                    bookSell += Number(item.sell);
+                }
+                if(isCurrent) cMonthRev += Number(item.sell);
+            });
+
+            if(o.category === 'Chinese') {
+                chineseDelGiven += Number(o.delGiven);
+                chineseDelCost += Number(o.delCost);
+            } else {
+                bookDelGiven += Number(o.delGiven);
+                bookDelCost += Number(o.delCost);
+            }
+            if(isCurrent) cMonthRev += Number(o.delGiven);
+        });
+
+        db.expenses.forEach(e => totalOtherExp += Number(e.amount));
+
+        let bookTotalRevenue = bookSell + bookDelGiven;
+        let chineseTotalRevenue = chineseSell + chineseDelGiven;
+
+        let bookNetProfit = bookTotalRevenue - (bookBuy + bookDelCost);
+        let chineseNetProfit = chineseTotalRevenue - (chineseBuy + chineseDelCost);
+
+        let totalRevenue = bookTotalRevenue + chineseTotalRevenue;
+        let totalBuyCost = bookBuy + chineseBuy;
+        let totalBusinessExpenses = bookDelCost + chineseDelCost + totalOtherExp;
+        let totalNetProfit = totalRevenue - (totalBuyCost + totalBusinessExpenses);
+
+        // Render Overall Stats
+        document.getElementById('dash-tot-rev').innerText = `৳ ${totalRevenue}`;
+        document.getElementById('dash-tot-profit').innerText = `৳ ${totalNetProfit}`;
+        document.getElementById('dash-tot-buy').innerText = `৳ ${totalBuyCost}`;
+        document.getElementById('dash-tot-exp').innerText = `৳ ${totalBusinessExpenses}`;
+
+        // Render Book Breakdown
+        document.getElementById('book-sold-count').innerText = bookSold;
+        document.getElementById('book-revenue').innerText = bookTotalRevenue;
+        document.getElementById('book-buy-total').innerText = bookBuy;
+        document.getElementById('book-del-share').innerText = bookDelCost;
+        document.getElementById('book-profit').innerText = `৳ ${bookNetProfit}`;
+
+        // Render Chinese Breakdown
+        document.getElementById('chinese-sold-count').innerText = chineseSold;
+        document.getElementById('chinese-revenue').innerText = chineseTotalRevenue;
+        document.getElementById('chinese-buy-total').innerText = chineseBuy;
+        document.getElementById('chinese-del-share').innerText = chineseDelCost;
+        document.getElementById('chinese-profit').innerText = `৳ ${chineseNetProfit}`;
+
+        // Targets Rendering
+        document.getElementById('target-orders-achieved').innerText = cMonthOrders;
+        document.getElementById('target-orders-goal').innerText = targets.orders;
+        let orderPercent = targets.orders > 0 ? Math.min(Math.round((cMonthOrders / targets.orders) * 100), 100) : 0;
+        document.getElementById('target-orders-percent').innerText = orderPercent + '%';
+        let oRem = targets.orders - cMonthOrders;
+        document.getElementById('target-orders-remaining').innerText = oRem <= 0 ? 'Reached!' : `${oRem} Left`;
+
+        document.getElementById('target-rev-achieved').innerText = cMonthRev;
+        document.getElementById('target-rev-goal').innerText = targets.revenue;
+        let revPercent = targets.revenue > 0 ? Math.min(Math.round((cMonthRev / targets.revenue) * 100), 100) : 0;
+        document.getElementById('target-rev-percent').innerText = revPercent + '%';
+        let rRem = targets.revenue - cMonthRev;
+        document.getElementById('target-rev-remaining').innerText = rRem <= 0 ? 'Reached!' : `৳${rRem} Left`;
+
+        drawTargetChart('targetOrdersChart', orderPercent, '#ff416c');
+        drawTargetChart('targetRevChart', revPercent, '#00b09b');
+        drawDistributionChart(categoryCount);
+    }
+
+    function drawTargetChart(canvasId, percent, color) {
+        let ctx = document.getElementById(canvasId);
+        let inst = canvasId === 'targetOrdersChart' ? tOrderChartInst : tRevChartInst;
+        if(inst) inst.destroy();
+        
+        let remaining = 100 - percent;
+        let config = {
+            type: 'doughnut',
+            data: { datasets: [{ data: [percent, remaining], backgroundColor: [color, '#f3f4f6'], borderWidth: 0, borderRadius: 5 }] },
+            options: { cutout: '80%', responsive: true, maintainAspectRatio: false, plugins: { tooltip: { enabled: false } } }
+        };
+        
+        if(canvasId === 'targetOrdersChart') tOrderChartInst = new Chart(ctx, config);
+        else tRevChartInst = new Chart(ctx, config);
+    }
+
+    function drawDistributionChart(catCount) {
+        if(pieChartInst) pieChartInst.destroy();
+        pieChartInst = new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: { 
+                labels: ['Book Orders', 'Chinese Product Orders'], 
+                datasets: [{ data: [catCount['Book'] || 0, catCount['Chinese'] || 0], backgroundColor: ['#3b82f6', '#db2777'], borderWidth: 2 }] 
+            },
+            options: { cutout: '65%', maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 15 } } } }
+        });
+    }
+
+    function viewOrderDetails(i) {
+        let o = db.orders[i];
+        let itemsHtml = '';
+        o.items.forEach((item, idx) => {
+            itemsHtml += `<tr><td style="padding:8px; border-bottom:1px solid #eee;">${idx+1}. ${item.name} (${item.pub})</td><td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">Buy: ৳${item.buy} | Sell: ৳${item.sell}</td></tr>`;
+        });
+
+        let body = `
+            <p><strong>Category:</strong> <span class="badge badge-${o.category}">${o.category}</span></p>
+            <p><strong>Date:</strong> ${o.date}</p>
+            <p><strong>Customer:</strong> ${o.name} (${o.phone})</p>
+            <p><strong>Address:</strong> ${o.address}</p>
+            <p><strong>Status:</strong> <span class="badge badge-${o.status}">${o.status}</span></p>
+            <hr style="margin:15px 0; border:0; border-top:1px solid #eee;">
+            <h4 style="margin-bottom:10px;">Items (${o.items.length}):</h4>
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">${itemsHtml}</table>
+            <hr style="margin:15px 0; border:0; border-top:1px solid #eee;">
+            <p><strong>Delivery Charge Paid:</strong> ৳${o.delGiven}</p>
+            <p><strong>Actual Courier Cost:</strong> ৳${o.delCost}</p>
+            <div style="text-align:right; margin-top:15px;">
+                <button onclick="printInvoice(${i}); closeModal();" class="action-btn btn-print" style="width:auto; padding:8px 15px;"><i class="fas fa-print"></i> Print Invoice</button>
+            </div>
+        `;
+        document.getElementById('modal-body').innerHTML = body;
+        document.getElementById('orderModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('orderModal').style.display = 'none'; }
+
+    function resetOrderForm() {
+        document.getElementById('orderForm').reset();
+        setOrderCategory('Book');
+        document.getElementById('item-rows-container').innerHTML = '';
+        addItemRow();
+        document.getElementById('o-date').valueAsDate = new Date();
+        editOrderIndex = null;
+        document.getElementById('order-form-title').innerText = "Create New Order";
+        document.getElementById('order-submit-btn').innerText = "Save Order";
+        document.getElementById('order-cancel-btn').style.display = "none";
+    }
+
+    function renderOrders() {
+        let tbody = document.getElementById('orderTable'); tbody.innerHTML = '';
+        if(!db.orders) db.orders = [];
+        for(let i = db.orders.length - 1; i >= 0; i--) {
+            let o = db.orders[i];
+            let tBuy = 0, tSell = 0; o.items.forEach(item => { tBuy += Number(item.buy); tSell += Number(item.sell); });
+            let profit = (tSell + Number(o.delGiven)) - (tBuy + Number(o.delCost));
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td><span style="display:block; margin-bottom:5px; font-weight:700;">${o.date}</span><span class="badge badge-${o.category}">${o.category}</span> <span class="badge badge-${o.status}">${o.status}</span></td>
+                    <td>
+                        <strong style="color:#ff416c; cursor:pointer;" onclick="viewOrderDetails(${i})">${o.name}</strong><br>
+                        <span style="font-size:12px; color:var(--text-muted);"><i class="fas fa-phone"></i> ${o.phone} | <span style="cursor:pointer; color:#3b82f6; text-decoration:underline;" onclick="viewOrderDetails(${i})">${o.items.length} items</span></span>
+                    </td>
+                    <td>
+                        <div style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+                            Rev: ৳${tSell + Number(o.delGiven)} | Cost: ৳${tBuy + Number(o.delCost)}<br>
+                            <strong style="color:${profit >= 0 ? '#059669' : '#ef4444'}; font-size:13px;">Profit: ৳${profit}</strong>
+                        </div>
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button class="action-btn btn-print" onclick="printInvoice(${i})" title="Print Invoice"><i class="fas fa-print"></i></button>
+                        <button class="action-btn" onclick="startEditOrder(${i})" title="Edit"><i class="fas fa-pen"></i></button>
+                        <button class="action-btn btn-del" onclick="deleteOrder(${i})" title="Delete"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    document.getElementById('orderForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let items = [];
+        document.querySelectorAll('.item-row').forEach(row => {
+            items.push({ 
+                name: row.querySelector('.i-name').value, 
+                pub: row.querySelector('.i-pub').value, 
+                buy: Number(row.querySelector('.i-buy').value), 
+                sell: Number(row.querySelector('.i-sell').value) 
+            });
+        });
+        if(items.length === 0) return alert("Add at least 1 item!");
+
+        let orderData = {
+            category: document.getElementById('selected-category').value,
+            date: document.getElementById('o-date').value, 
+            name: document.getElementById('o-name').value, 
+            phone: document.getElementById('o-phone').value, 
+            address: document.getElementById('o-address').value,
+            items: items, 
+            delGiven: Number(document.getElementById('o-del-given').value), 
+            delCost: Number(document.getElementById('o-del-cost').value), 
+            status: document.getElementById('o-status').value
+        };
+
+        if(editOrderIndex !== null) { db.orders[editOrderIndex] = orderData; } 
+        else { db.orders.push(orderData); }
+        
+        saveData(); renderOrders(); resetOrderForm(); switchTab('tab-order-list');
+    });
+
+    function startEditOrder(i) {
+        editOrderIndex = i; let o = db.orders[i];
+        setOrderCategory(o.category || 'Book');
+        document.getElementById('o-date').value = o.date; 
+        document.getElementById('o-name').value = o.name; 
+        document.getElementById('o-phone').value = o.phone; 
+        document.getElementById('o-address').value = o.address;
+        document.getElementById('o-del-given').value = o.delGiven; 
+        document.getElementById('o-del-cost').value = o.delCost; 
+        document.getElementById('o-status').value = o.status;
+        
+        document.getElementById('item-rows-container').innerHTML = ''; 
+        o.items.forEach(item => addItemRow(item.name, item.pub, item.buy, item.sell));
+        
+        document.getElementById('order-form-title').innerText = "Edit Order"; 
+        document.getElementById('order-submit-btn').innerText = "Update"; 
+        document.getElementById('order-cancel-btn').style.display = "block";
+        switchTab('tab-new-order');
+    }
+    function cancelEditOrder() { resetOrderForm(); switchTab('tab-order-list'); }
+
+    function renderExpenses() {
+        let tbody = document.getElementById('expenseTable'); tbody.innerHTML = '';
+        if(!db.expenses) db.expenses = [];
+        db.expenses.forEach((e, i) => {
+            tbody.innerHTML += `
+                <tr><td>${e.date}</td><td>${e.note}</td><td style="font-weight:700;">৳ ${e.amount}</td>
+                <td style="text-align: right;"><button class="action-btn" onclick="startEditExpense(${i})"><i class="fas fa-pen"></i></button><button class="action-btn btn-del" onclick="deleteExpense(${i})"><i class="fas fa-trash"></i></button></td></tr>`;
+        });
+    }
+
+    document.getElementById('expenseForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let expData = { date: document.getElementById('e-date').value, note: document.getElementById('e-note').value, amount: Number(document.getElementById('e-amount').value) };
+        if(editExpenseIndex !== null) { db.expenses[editExpenseIndex] = expData; } else { db.expenses.push(expData); }
+        saveData(); renderExpenses(); cancelEditExpense(); updateDashboard();
+    });
+    
+    function startEditExpense(i) {
+        editExpenseIndex = i; let e = db.expenses[i];
+        document.getElementById('e-date').value = e.date; document.getElementById('e-note').value = e.note; document.getElementById('e-amount').value = e.amount;
+        document.getElementById('expense-form-title').innerText = "Edit Expense"; document.getElementById('expense-submit-btn').innerText = "Update"; document.getElementById('expense-cancel-btn').style.display = "block";
+    }
+    function cancelEditExpense() { document.getElementById('expenseForm').reset(); editExpenseIndex = null; document.getElementById('expense-form-title').innerText = "Add Expense"; document.getElementById('expense-submit-btn').innerText = "Save"; document.getElementById('expense-cancel-btn').style.display = "none"; }
+
+    function deleteOrder(i) { if(confirm('Delete Order?')) { db.orders.splice(i, 1); saveData(); renderOrders(); updateDashboard(); } }
+    function deleteExpense(i) { if(confirm('Delete Expense?')) { db.expenses.splice(i, 1); saveData(); renderExpenses(); updateDashboard(); } }
+    
+    function exportBackup() { let a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,'+ encodeURIComponent(JSON.stringify(db)); a.download = 'chupchap_master_backup.json'; a.click(); }
+    function importBackup(e) { let f = e.target.files[0]; if(!f) return; let r = new FileReader(); r.onload = function(evt) { try { db = JSON.parse(evt.target.result); saveData(); renderOrders(); renderExpenses(); updateDashboard(); alert("Restored!"); } catch(err) { alert("Invalid File!"); } }; r.readAsText(f); e.target.value = ''; }
+
+    function printInvoice(i) {
+        let o = db.orders[i];
+        document.getElementById('inv-date').innerText = o.date;
+        document.getElementById('inv-id').innerText = (1000 + i);
+        document.getElementById('inv-name').innerText = o.name;
+        document.getElementById('inv-phone').innerText = "Phone: " + o.phone;
+        document.getElementById('inv-address').innerText = "Address: " + o.address;
+        document.getElementById('inv-th-sub').innerText = o.category === 'Chinese' ? 'Variant / Type' : 'Publisher';
+        
+        let tbody = document.getElementById('inv-items');
+        tbody.innerHTML = '';
+        let sub = 0;
+        
+        o.items.forEach(item => {
+            sub += Number(item.sell);
+            tbody.innerHTML += `<tr><td><strong>${item.name}</strong></td><td>${item.pub}</td><td style="text-align:right;">৳ ${item.sell}</td></tr>`;
+        });
+        
+        let totalPayable = sub + Number(o.delGiven);
+        document.getElementById('inv-sub').innerText = `৳ ${sub}`;
+        document.getElementById('inv-del').innerText = `৳ ${o.delGiven}`;
+        document.getElementById('inv-total').innerText = `৳ ${totalPayable}`;
+        document.getElementById('inv-top-due').innerText = `৳ ${totalPayable}`;
+        
+        window.print();
+    }
+
+    // Init Execution
+    resetOrderForm(); 
+    document.getElementById('e-date').valueAsDate = new Date();
+    loadData();
+</script>
+</body>
+</html>

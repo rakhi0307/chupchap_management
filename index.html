@@ -145,7 +145,7 @@
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="brand-logo">
-            <img src="logo.png.png" alt="Logo" onerror="this.src='logo.png'">
+            <img src="logo.png" alt="Logo" onerror="this.src='logo.png'">
             <h2>ChupChap</h2>
         </div>
         <ul class="nav-menu">
@@ -357,7 +357,7 @@
     <div id="invoice-print">
         <div class="inv-top-bar">
             <div>
-                <img src="logo.png.png" class="inv-brand-logo" alt="Logo" onerror="this.src='logo.png'">
+                <img src="logo.png" class="inv-brand-logo" alt="Logo" onerror="this.src='logo.png'">
                 <h2 style="font-size:22px; font-weight:800; color:#111827; margin:0;">ChupChap Pathshala</h2>
                 <p style="font-size:12px; color:var(--text-muted); margin:2px 0;">Reliable Store in Bangladesh</p>
                 <p style="font-size:12px; color:var(--text-muted); margin:0;">www.chupchappathshala.com</p>
@@ -412,7 +412,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 <script>
-    // --- Your Live Firebase Cloud Configuration ---
+    // --- Your Corrected Live Firebase Cloud Configuration ---
     const firebaseConfig = {
         apiKey: "AIzaSyDUdzrgOpHdPvrQegsmaExfqzvrk9DXmuA",
         authDomain: "chupchap-pathshala.firebaseapp.com",
@@ -423,7 +423,6 @@
         measurementId: "G-VR7ZZTX154"
     };
 
-    // Initialize Firebase Cloud Firestore
     let isCloudActive = false;
     let dbCloud = null;
     try {
@@ -443,7 +442,6 @@
     let editOrderIndex = null;
     let editExpenseIndex = null;
 
-    // Real-Time Cloud Listener (Auto Syncs across Phone & PC)
     function loadData() {
         if(isCloudActive && dbCloud) {
             document.getElementById('sync-status').innerHTML = '<i class="fas fa-cloud" style="color:#059669;"></i> Live Cloud';
@@ -452,7 +450,6 @@
                     db = doc.data();
                     renderAll();
                 } else {
-                    // Initialize empty cloud doc if not exists
                     saveData();
                 }
             }, (error) => {
@@ -471,11 +468,9 @@
     }
 
     function saveData() {
-        // Save locally for instant offline support
         localStorage.setItem('chupchap_master_db', JSON.stringify(db));
         localStorage.setItem('chupchap_master_targets', JSON.stringify(targets));
 
-        // Save to Firebase Cloud Firestore
         if(isCloudActive && dbCloud) {
             dbCloud.collection("store").doc("main_data").set(db)
             .then(() => {
@@ -623,27 +618,23 @@
         let totalBusinessExpenses = bookDelCost + chineseDelCost + totalOtherExp;
         let totalNetProfit = totalRevenue - (totalBuyCost + totalBusinessExpenses);
 
-        // Render Overall Stats
         document.getElementById('dash-tot-rev').innerText = `৳ ${totalRevenue}`;
         document.getElementById('dash-tot-profit').innerText = `৳ ${totalNetProfit}`;
         document.getElementById('dash-tot-buy').innerText = `৳ ${totalBuyCost}`;
         document.getElementById('dash-tot-exp').innerText = `৳ ${totalBusinessExpenses}`;
 
-        // Render Book Breakdown
         document.getElementById('book-sold-count').innerText = bookSold;
         document.getElementById('book-revenue').innerText = bookTotalRevenue;
         document.getElementById('book-buy-total').innerText = bookBuy;
         document.getElementById('book-del-share').innerText = bookDelCost;
         document.getElementById('book-profit').innerText = `৳ ${bookNetProfit}`;
 
-        // Render Chinese Breakdown
         document.getElementById('chinese-sold-count').innerText = chineseSold;
         document.getElementById('chinese-revenue').innerText = chineseTotalRevenue;
         document.getElementById('chinese-buy-total').innerText = chineseBuy;
         document.getElementById('chinese-del-share').innerText = chineseDelCost;
         document.getElementById('chinese-profit').innerText = `৳ ${chineseNetProfit}`;
 
-        // Targets Rendering
         document.getElementById('target-orders-achieved').innerText = cMonthOrders;
         document.getElementById('target-orders-goal').innerText = targets.orders;
         let orderPercent = targets.orders > 0 ? Math.min(Math.round((cMonthOrders / targets.orders) * 100), 100) : 0;

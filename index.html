@@ -9,10 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase SDK (Cloud Realtime Sync) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
     <style>
         :root {
             --bg-color: #f7f9fa;
@@ -165,7 +161,7 @@
         <div class="header">
             <div class="page-title" id="header-title">Board Overview</div>
             <div class="action-btns">
-                <span id="sync-status" style="font-size:12px; color:#059669; font-weight:700; margin-right:10px;"><i class="fas fa-cloud"></i> Cloud Live</span>
+                <span id="sync-status" style="font-size:12px; color:#059669; font-weight:700; margin-right:10px;"><i class="fas fa-cloud"></i> Connecting...</span>
                 <button onclick="exportBackup()"><i class="fas fa-download"></i> <span>Backup</span></button>
                 <input type="file" id="importFile" style="display:none" onchange="importBackup(event)">
                 <button onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i> <span>Restore</span></button>
@@ -411,27 +407,33 @@
         </div>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
 <script>
-    // --- Firebase Free Cloud Configuration ---
-    // (Note: Apni chaile firebase.google.com theke nijer free project er credentials gulo ekhane bosiye nite paren, akhon default local+cloud hybrid mode a ache)
+    // --- Your Live Firebase Cloud Configuration ---
     const firebaseConfig = {
-        apiKey: "AIzaSyDemoKeyForChupChapPathshala12345",
-        authDomain: "chupchap-app.firebaseapp.com",
-        projectId: "chupchap-app",
-        storageBucket: "chupchap-app.appspot.com",
-        messagingSenderId: "123456789",
-        appId: "1:123456789:web:abcdef"
+        apiKey: "AIzaSyDUdzrgOpHdPvrQegsmaExfqzvrk9DXmuA",
+        authDomain: "chupchap-pathshala.firebaseapp.com",
+        projectId: "chupchap-pathshala",
+        storageBucket: "chupchap-pathshala.firebasestorage.app",
+        messagingSenderId: "927056580266",
+        appId: "1:927056580266:web:7e2eb66aa053c807c20ad3",
+        measurementId: "G-VR7ZZTX154"
     };
 
+    // Initialize Firebase Cloud Firestore
     let isCloudActive = false;
+    let dbCloud = null;
     try {
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
-        var dbCloud = firebase.firestore();
+        dbCloud = firebase.firestore();
         isCloudActive = true;
     } catch(err) {
-        console.log("Offline LocalStorage Mode Active");
+        console.log("Cloud Init Error:", err);
     }
 
     let db = { orders: [], expenses: [] };
@@ -441,17 +443,22 @@
     let editOrderIndex = null;
     let editExpenseIndex = null;
 
-    // Load Data (Cloud First with LocalStorage Fallback)
+    // Real-Time Cloud Listener (Auto Syncs across Phone & PC)
     function loadData() {
-        if(isCloudActive) {
-            dbCloud.collection("store").doc("main_data").get().then((doc) => {
+        if(isCloudActive && dbCloud) {
+            document.getElementById('sync-status').innerHTML = '<i class="fas fa-cloud" style="color:#059669;"></i> Live Cloud';
+            dbCloud.collection("store").doc("main_data").onSnapshot((doc) => {
                 if (doc.exists) {
                     db = doc.data();
                     renderAll();
                 } else {
-                    loadLocal();
+                    // Initialize empty cloud doc if not exists
+                    saveData();
                 }
-            }).catch(() => { loadLocal(); });
+            }, (error) => {
+                console.log("Sync error, falling back to local:", error);
+                loadLocal();
+            });
         } else {
             loadLocal();
         }
@@ -464,18 +471,19 @@
     }
 
     function saveData() {
-        // Save to LocalStorage immediately for instant offline support
+        // Save locally for instant offline support
         localStorage.setItem('chupchap_master_db', JSON.stringify(db));
         localStorage.setItem('chupchap_master_targets', JSON.stringify(targets));
 
-        // Sync to Cloud in background
-        if(isCloudActive) {
+        // Save to Firebase Cloud Firestore
+        if(isCloudActive && dbCloud) {
             dbCloud.collection("store").doc("main_data").set(db)
             .then(() => {
-                document.getElementById('sync-status').innerHTML = '<i class="fas fa-cloud"></i> Synced';
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-cloud-upload-alt" style="color:#059669;"></i> Synced';
             })
-            .catch(() => {
-                document.getElementById('sync-status').innerHTML = '<i class="fas fa-cloud-rain"></i> Offline Save';
+            .catch((error) => {
+                console.error("Cloud save failed: ", error);
+                document.getElementById('sync-status').innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#d97706;"></i> Offline Mode';
             });
         }
     }
@@ -570,6 +578,9 @@
         let cMonthOrders = 0;
         let cMonthRev = 0;
         let categoryCount = { 'Book': 0, 'Chinese': 0 };
+
+        if(!db.orders) db.orders = [];
+        if(!db.expenses) db.expenses = [];
 
         db.orders.forEach(o => {
             let isCurrent = o.date.startsWith(currentMonth);
